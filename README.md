@@ -1,6 +1,6 @@
 # mudl
 
-Uma ferramenta que categoriza instala músicas.
+Uma ferramenta que instala músicas no terminal.
 
 ## Como Usar
 
