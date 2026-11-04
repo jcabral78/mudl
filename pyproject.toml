@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mudl"
+version = "0.1.0"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+dependencies = [
+    "requests",
+    "yt-dlp[default]",
+    "mutagen",
+]
+
+[project.scripts]
+mudl = "mudl:main"
+
+[tool.setuptools]
+py-modules = ["mudl"]
