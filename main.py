@@ -1,12 +1,12 @@
 import os
 from pathlib import Path
+import argparse
 import sqlite3
 import requests
 import yt_dlp
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TRCK, APIC
 
 def baixar_musica(nome_arquivo, mbid, url_youtube, dir_musicas):
-
     ###################
     # Pegar metadados #
     ###################
@@ -64,59 +64,90 @@ def baixar_musica(nome_arquivo, mbid, url_youtube, dir_musicas):
     audio.save()
 
 
-base = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
-dir_config = base / "mudl"
-dir_config.mkdir(parents=True, exist_ok=True)
+def main():
+    ##########################
+    # Configuração do parser #
+    ##########################
 
-dir_musicas = Path.home() / "Músicas"
-dir_musicas.mkdir(parents=True, exist_ok=True)
+    parser = argparse.ArgumentParser()
+    grupo = parser.add_mutually_exclusive_group()
+    
+    grupo.add_argument("-c", "--criar", action="store_true")
+    grupo.add_argument("-l", "--ler", action="store_true")
+    grupo.add_argument("-a", "--atualizar", action="store_true")
+    grupo.add_argument("-r", "--remover", action="store_true")
+    
+    args = parser.parse_args()
+
+    
+    ##########################
+    # Criação dos diretórios #
+    ##########################
+
+    base = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    dir_config = base / "mudl"
+    dir_config.mkdir(parents=True, exist_ok=True)
+    
+    dir_musicas = Path.home() / "Músicas"
+    dir_musicas.mkdir(parents=True, exist_ok=True)
+    
+    
+    #############################
+    # Criação do banco de dados #
+    #############################
+
+    conexao = sqlite3.connect(dir_config / "mudl.db")
+    cursor = conexao.cursor()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS musicas(
+            ID_musica INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome_musica TEXT NOT NULL,
+            nome_artista TEXT NOT NULL,
+            media_id TEXT NOT NULL,
+            url TEXT NOT NULL
+        )
+    ''')
 
 
-conexao = sqlite3.connect(dir_config / "mudl.db")
-cursor = conexao.cursor()
+    ##################
+    # Opções do CRUD #
+    ##################
 
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS musicas(
-        ID_musica INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome_musica TEXT NOT NULL,
-        nome_artista TEXT NOT NULL,
-        media_id TEXT NOT NULL,
-        url TEXT NOT NULL
-    )
-''')
+    if args.criar:
+        info_c = (input("nome: "), input("artista: "), input("id: "), input("url: "))
+        cursor.execute("INSERT INTO musicas (nome_musica, nome_artista, media_id, url) VALUES(?, ?, ?, ?)", info_c)
+        conexao.commit()
+    
+    elif args.ler:
+        res_r = cursor.execute("SELECT * FROM musicas")
+        res_r = res_r.fetchall()
+    
+        for i, registros in enumerate(res_r):
+            print(f"{i + 1}) {registros[1]} - {registros[2]} | {registros[3]} | {registros[4]}")
+    
+    elif args.atualizar:
+        media_id_u = input("media_id: ")
+        info_u = (input("nome: "), input("artista: "), input("id: "), input("url: "), media_id_u)
+        cursor.execute("UPDATE musicas SET nome_musica = ?, nome_artista = ?, media_id = ?, url = ? WHERE media_id = ?", (info_u))
+        conexao.commit()
+    
+    elif args.remover:
+        media_id_d = input("media_id: ")
+        cursor.execute("DELETE FROM musicas WHERE media_id = ?", (media_id_d,))
+        conexao.commit()
+    
+    # Baixa as músicas
+    else: 
+        res = cursor.execute("SELECT * FROM musicas")
+        res = res.fetchall()
+        
+        for registros in res:
+            nome_arquivo = f"{registros[1]} - {registros[2]}"
+            if not (dir_musicas / f"{nome_arquivo}.mp3").is_file():
+                baixar_musica(nome_arquivo, registros[3], registros[4], dir_musicas)
+    
+    conexao.close()
 
-
-escolha = input("C - R - U - D: ")
-
-if escolha == "C":
-    info_c = (input("nome: "), input("artista: "), input("id: "), input("url: "))
-    cursor.execute("INSERT INTO musicas (nome_musica, nome_artista, media_id, url) VALUES(?, ?, ?, ?)", info_c)
-
-if escolha == "R":
-    res_r = cursor.execute("SELECT * FROM musicas")
-    res_r = res_r.fetchall()
-
-    for i, registros in enumerate(res_r):
-        print(f"{i + 1}) {registros[1]} - {registros[2]} | {registros[3]} | {registros[4]}")
-
-if escolha == "U":
-    media_id_u = input("media_id: ")
-    info_u = (input("nome: "), input("artista: "), input("id: "), input("url: "), media_id_u)
-    cursor.execute("UPDATE musicas SET nome_musica = ?, nome_artista = ?, media_id = ?, url = ? WHERE media_id = ?", (info_u))
-
-if escolha == "D":
-    media_id_d = input("media_id: ")
-    cursor.execute("DELETE FROM musicas WHERE media_id = ?", (media_id_d,))
-
-conexao.commit()
-
-
-res = cursor.execute("SELECT * FROM musicas")
-res = res.fetchall()
-
-for registros in res:
-    nome_arquivo = f"{registros[1]} - {registros[2]}"
-    if not (dir_musicas / f"{nome_arquivo}.mp3").is_file():
-        baixar_musica(nome_arquivo, registros[3], registros[4], dir_musicas)
-
-conexao.close()
+if __name__ == "__main__":
+    main()
