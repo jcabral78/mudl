@@ -24,13 +24,14 @@ Uma ferramenta que instala músicas no terminal.
 ### Dependências
 
 - deno
-- uv
 ***
 
-Após instalar as dependências rode esse comando:
+Após instalar as dependências, é possível instalar a ferramenta com o gerenciador de pacotes em python de sua preferência.
+
+Exemplo de instalação:
 
     uv tool install git+https://github.com/jcabral78/mudl
 
 ## ID
 
-O ID das músicas pode ser achado [aqui](https://musicbrainz.org/)
+O ID das músicas pode ser achado [aqui](https://musicbrainz.org/).
