@@ -6,18 +6,31 @@ import requests
 import yt_dlp
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TRCK, APIC
 
-def baixar_musica(nome_arquivo, mbid, url_youtube, dir_musicas):
-    ###################
-    # Pegar metadados #
-    ###################
+def pegar_release(media_id_r):
+    url = f"https://musicbrainz.org/ws/2/recording/{media_id_r}"
+    params = {"inc": "artists+releases+media+release-groups", "fmt": "json"}
+    headers = {"User-Agent": "mudl ( https://github.com/jcabral78/mudl )"}
+    
+    dados = requests.get(url, params=params, headers=headers).json()
 
+    for i, releases in enumerate(dados["releases"]):
+        tipo = releases["release-group"]["primary-type"]
+        data = releases["release-group"]["first-release-date"]
+        nome = releases["release-group"]["title"]
+
+        print(f"{i + 1}) {tipo} | {data} | {nome}")
+
+    return int(input("Escolha a release que deseja registrar: ")) - 1
+
+
+def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
     url = f"https://musicbrainz.org/ws/2/recording/{mbid}"
     params = {"inc": "artists+releases+media+release-groups", "fmt": "json"}
     headers = {"User-Agent": "mudl ( https://github.com/jcabral78/mudl )"}
     
     dados = requests.get(url, params=params, headers=headers).json()
-    
-    release = dados["releases"][0]
+
+    release = dados["releases"][release_certa]
     faixas = release["media"][0].get("track") or release["media"][0].get("tracks")
 
     capa = requests.get(f"https://coverartarchive.org/release-group/{release['release-group']['id']}/front", headers=headers)
@@ -31,9 +44,6 @@ def baixar_musica(nome_arquivo, mbid, url_youtube, dir_musicas):
         "numero": faixas[0]["position"]
     }
     
-    #################
-    # Baixar música #
-    #################
 
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -50,9 +60,6 @@ def baixar_musica(nome_arquivo, mbid, url_youtube, dir_musicas):
     print(f"Baixando: {nome_arquivo}")
     yt_dlp.YoutubeDL(ydl_opts).download([url_youtube])
 
-    #####################
-    # Inserir metadados #
-    #####################
 
     audio = ID3(dir_musicas / f"{nome_arquivo}.mp3")
     audio.add(TIT2(encoding = 3, text = metadados['nome']))
@@ -65,10 +72,6 @@ def baixar_musica(nome_arquivo, mbid, url_youtube, dir_musicas):
 
 
 def main():
-    ##########################
-    # Configuração do parser #
-    ##########################
-
     parser = argparse.ArgumentParser()
     grupo = parser.add_mutually_exclusive_group()
     
@@ -80,10 +83,6 @@ def main():
     args = parser.parse_args()
 
     
-    ##########################
-    # Criação dos diretórios #
-    ##########################
-
     base = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
     dir_config = base / "mudl"
     dir_config.mkdir(parents=True, exist_ok=True)
@@ -92,10 +91,6 @@ def main():
     dir_musicas.mkdir(parents=True, exist_ok=True)
     
     
-    #############################
-    # Criação do banco de dados #
-    #############################
-
     conexao = sqlite3.connect(dir_config / "mudl.db")
     cursor = conexao.cursor()
     
@@ -105,18 +100,20 @@ def main():
             nome_musica TEXT NOT NULL,
             nome_artista TEXT NOT NULL,
             media_id TEXT NOT NULL,
+            release_certa INTEGER NOT NULL,
             url TEXT NOT NULL
         )
     ''')
 
 
-    ##################
-    # Opções do CRUD #
-    ##################
-
     if args.criar:
-        info_c = (input("nome: "), input("artista: "), input("id: "), input("url: "))
-        cursor.execute("INSERT INTO musicas (nome_musica, nome_artista, media_id, url) VALUES(?, ?, ?, ?)", info_c)
+        media_id_c = input("id: ")
+
+        release_certa = pegar_release(media_id_c)
+
+        info_c = (input("nome: "), input("artista: "), media_id_c, release_certa, input("url: "))
+
+        cursor.execute("INSERT INTO musicas (nome_musica, nome_artista, media_id, release_certa, url) VALUES(?, ?, ?, ?, ?)", info_c)
         conexao.commit()
     
     elif args.ler:
@@ -124,12 +121,15 @@ def main():
         res_r = res_r.fetchall()
     
         for i, registros in enumerate(res_r):
-            print(f"{i + 1}) {registros[1]} - {registros[2]} | {registros[3]} | {registros[4]}")
+            print(f"{i + 1}) {registros[1]} - {registros[2]} | {registros[3]} | release: {registros[4] + 1} | {registros[5]}")
     
     elif args.atualizar:
         media_id_u = input("media_id: ")
-        info_u = (input("nome: "), input("artista: "), input("id: "), input("url: "), media_id_u)
-        cursor.execute("UPDATE musicas SET nome_musica = ?, nome_artista = ?, media_id = ?, url = ? WHERE media_id = ?", (info_u))
+
+        release_certa = pegar_release(media_id_u)
+
+        info_u = (input("nome: "), input("artista: "), input("id: "), release_certa, input("url: "), media_id_u)
+        cursor.execute("UPDATE musicas SET nome_musica = ?, nome_artista = ?, media_id = ?, release_certa = ?, url = ? WHERE media_id = ?", (info_u))
         conexao.commit()
     
     elif args.remover:
@@ -137,7 +137,6 @@ def main():
         cursor.execute("DELETE FROM musicas WHERE media_id = ?", (media_id_d,))
         conexao.commit()
     
-    # Baixa as músicas
     else: 
         res = cursor.execute("SELECT * FROM musicas")
         res = res.fetchall()
@@ -145,7 +144,7 @@ def main():
         for registros in res:
             nome_arquivo = f"{registros[1]} - {registros[2]}"
             if not (dir_musicas / f"{nome_arquivo}.mp3").is_file():
-                baixar_musica(nome_arquivo, registros[3], registros[4], dir_musicas)
+                baixar_musica(nome_arquivo, registros[3], registros[4], registros[5], dir_musicas)
     
     conexao.close()
 
