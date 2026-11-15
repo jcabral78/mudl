@@ -5,6 +5,7 @@ import sqlite3
 import requests
 import yt_dlp
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TRCK, APIC
+import sys
 
 def pegar_release(media_id_r):
     url = f"https://musicbrainz.org/ws/2/recording/{media_id_r}"
@@ -13,12 +14,14 @@ def pegar_release(media_id_r):
     
     dados = requests.get(url, params=params, headers=headers).json()
 
+
     for i, releases in enumerate(dados["releases"]):
         tipo = releases["release-group"]["primary-type"]
-        data = releases["release-group"]["first-release-date"]
+        data = releases["date"]
         nome = releases["release-group"]["title"]
+        release_id = releases["id"]
 
-        print(f"{i + 1}) {tipo} | {data} | {nome}")
+        print(f"{i + 1}) {tipo} | {data} | {nome} | {release_id}")
 
     return int(input("Escolha a release que deseja registrar: ")) - 1
 
@@ -30,10 +33,13 @@ def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
     
     dados = requests.get(url, params=params, headers=headers).json()
 
+    if dados.get("releases") == None:
+        sys.exit("Erro: muitas requisições ao MusicBrainz em pouco tempo")
+
     release = dados["releases"][release_certa]
     faixas = release["media"][0].get("track") or release["media"][0].get("tracks")
 
-    capa = requests.get(f"https://coverartarchive.org/release-group/{release['release-group']['id']}/front", headers=headers)
+    capa = requests.get(f"https://coverartarchive.org/release/{release['id']}/front", headers=headers)
     
     metadados = {
         "nome": dados["title"],
@@ -43,7 +49,7 @@ def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
         "data": release.get("date"),
         "numero": faixas[0]["position"]
     }
-    
+
 
     ydl_opts = {
         'format': 'bestaudio/best',
