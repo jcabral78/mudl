@@ -6,13 +6,18 @@ import requests
 import yt_dlp
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TRCK, APIC
 import sys
+import time
 
 def pegar_release(media_id_r):
+    time.sleep(2)
     url = f"https://musicbrainz.org/ws/2/recording/{media_id_r}"
     params = {"inc": "artists+releases+media+release-groups", "fmt": "json"}
     headers = {"User-Agent": "mudl ( https://github.com/jcabral78/mudl )"}
     
     dados = requests.get(url, params=params, headers=headers).json()
+
+    if dados.get("releases") == None:
+        sys.exit("Erro: houve algum problema com a requisição ao MusicBrainz")
 
 
     for i, releases in enumerate(dados["releases"]):
@@ -27,6 +32,7 @@ def pegar_release(media_id_r):
 
 
 def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
+    time.sleep(2)
     url = f"https://musicbrainz.org/ws/2/recording/{mbid}"
     params = {"inc": "artists+releases+media+release-groups", "fmt": "json"}
     headers = {"User-Agent": "mudl ( https://github.com/jcabral78/mudl )"}
@@ -34,7 +40,7 @@ def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
     dados = requests.get(url, params=params, headers=headers).json()
 
     if dados.get("releases") == None:
-        sys.exit("Erro: muitas requisições ao MusicBrainz em pouco tempo")
+        sys.exit("Erro: houve algum problema com a requisição ao MusicBrainz")
 
     release = dados["releases"][release_certa]
     faixas = release["media"][0].get("track") or release["media"][0].get("tracks")
