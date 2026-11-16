@@ -17,8 +17,7 @@ def pegar_release(media_id_r):
     dados = requests.get(url, params=params, headers=headers).json()
 
     if dados.get("releases") == None:
-        sys.exit("Erro: houve algum problema com a requisição ao MusicBrainz")
-
+        sys.exit(f"Erro: houve algum problema com a requisição ao MusicBrainz\n{dados}")
 
     for i, releases in enumerate(dados["releases"]):
         tipo = releases["release-group"]["primary-type"]
@@ -40,7 +39,7 @@ def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
     dados = requests.get(url, params=params, headers=headers).json()
 
     if dados.get("releases") == None:
-        sys.exit("Erro: houve algum problema com a requisição ao MusicBrainz")
+        sys.exit(f"Erro: houve algum problema com a requisição ao MusicBrainz\n{dados}")
 
     release = dados["releases"][release_certa]
     faixas = release["media"][0].get("track") or release["media"][0].get("tracks")
