@@ -19,6 +19,7 @@ def pegar_release(media_id_r):
     if dados.get("releases") == None:
         sys.exit(f"Erro: houve algum problema com a requisição ao MusicBrainz\n{dados}")
 
+    print("0) Tipo do release | Data de lançamento | Nome do release | ID do release")
     for i, releases in enumerate(dados["releases"]):
         tipo = releases["release-group"]["primary-type"]
         data = releases["date"]
@@ -118,11 +119,12 @@ def main():
 
 
     if args.criar:
-        media_id_c = input("id: ")
+        media_id_c = input("ID da música (MusicBrainz): ")
 
         release_certa = pegar_release(media_id_c)
 
-        info_c = (input("nome: "), input("artista: "), media_id_c, release_certa, input("url: "))
+        info_c = (input("Nome da música: "), input("Nome do artista/banda: "),
+                  media_id_c, release_certa, input("URL da música (Youtube): "))
 
         cursor.execute("INSERT INTO musicas (nome_musica, nome_artista, media_id, release_certa, url) VALUES(?, ?, ?, ?, ?)", info_c)
         conexao.commit()
@@ -132,19 +134,21 @@ def main():
         res_r = res_r.fetchall()
     
         for i, registros in enumerate(res_r):
-            print(f"{i + 1}) {registros[1]} - {registros[2]} | {registros[3]} | release: {registros[4] + 1} | {registros[5]}")
+            print(f"{i + 1}) {registros[1]} - {registros[2]} | ID: {registros[3]} | Nº da release: {registros[4] + 1} | URL: {registros[5]}")
     
     elif args.atualizar:
-        media_id_u = input("media_id: ")
+        media_id_u = input("ID da música (MusicBrainz): ")
 
         release_certa = pegar_release(media_id_u)
 
-        info_u = (input("nome: "), input("artista: "), input("id: "), release_certa, input("url: "), media_id_u)
+        info_u = (input("Novo nome da música: "), input("Novo nome do artista: "),
+                  input("Novo ID da música (MusicBrainz): "), release_certa, input("Novo URL da música (Youtube): "), media_id_u)
+
         cursor.execute("UPDATE musicas SET nome_musica = ?, nome_artista = ?, media_id = ?, release_certa = ?, url = ? WHERE media_id = ?", (info_u))
         conexao.commit()
     
     elif args.remover:
-        media_id_d = input("media_id: ")
+        media_id_d = input("ID da música (MusicBrainz): ")
         cursor.execute("DELETE FROM musicas WHERE media_id = ?", (media_id_d,))
         conexao.commit()
     
