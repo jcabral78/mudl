@@ -21,10 +21,10 @@ def pegar_release(media_id_r):
 
     print("0) Tipo do release | Data de lançamento | Nome do release | ID do release")
     for i, releases in enumerate(dados["releases"]):
-        tipo = releases["release-group"]["primary-type"]
-        data = releases["date"]
-        nome = releases["release-group"]["title"]
-        release_id = releases["id"]
+        tipo = releases["release-group"].get("primary-type")
+        data = releases.get("date")
+        nome = releases["release-group"].get("title")
+        release_id = releases.get("id")
 
         print(f"{i + 1}) {tipo} | {data} | {nome} | {release_id}")
 
