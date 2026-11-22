@@ -12,7 +12,7 @@ import time
 def fazer_request(url, params, headers):
     for i in range(5):
         try:
-            time.sleep(2)
+            time.sleep(2 * i)
             resposta = requests.get(url, params=params, headers=headers, timeout=30)
             resposta.raise_for_status()
             dados = resposta.json()
@@ -30,7 +30,7 @@ def pegar_release(media_id_r):
     
     dados = fazer_request(url, params, headers)
 
-    if dados.get("releases") == None:
+    if not dados.get("releases"):
         sys.exit(f"Erro: houve algum problema com a requisição ao MusicBrainz\n{dados}")
 
     print("0) Tipo do release | Data de lançamento | Nome do release | ID do release")
@@ -52,7 +52,7 @@ def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
     
     dados = fazer_request(url, params, headers)
 
-    if dados.get("releases") == None:
+    if not dados.get("releases"):
         sys.exit(f"Erro: houve algum problema com a requisição ao MusicBrainz\n{dados}")
 
     release = dados["releases"][release_certa]
