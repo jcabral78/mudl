@@ -4,17 +4,31 @@ import argparse
 import sqlite3
 import requests
 import yt_dlp
+from yt_dlp.utils import DownloadError
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TRCK, APIC
 import sys
 import time
 
+def fazer_request(url, params, headers):
+    for i in range(5):
+        try:
+            time.sleep(2)
+            resposta = requests.get(url, params=params, headers=headers, timeout=30)
+            resposta.raise_for_status()
+            dados = resposta.json()
+        except requests.RequestException as e:
+            print(f"Erro: houve algum problema com a requisição ao MusicBrainz\n{e}")
+        else:
+            return dados
+
+    sys.exit("Não foi possível fazer a requisição")
+
 def pegar_release(media_id_r):
-    time.sleep(2)
     url = f"https://musicbrainz.org/ws/2/recording/{media_id_r}"
     params = {"inc": "artists+releases+media+release-groups", "fmt": "json"}
     headers = {"User-Agent": "mudl ( https://github.com/jcabral78/mudl )"}
     
-    dados = requests.get(url, params=params, headers=headers).json()
+    dados = fazer_request(url, params, headers)
 
     if dados.get("releases") == None:
         sys.exit(f"Erro: houve algum problema com a requisição ao MusicBrainz\n{dados}")
@@ -32,12 +46,11 @@ def pegar_release(media_id_r):
 
 
 def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
-    time.sleep(2)
     url = f"https://musicbrainz.org/ws/2/recording/{mbid}"
     params = {"inc": "artists+releases+media+release-groups", "fmt": "json"}
     headers = {"User-Agent": "mudl ( https://github.com/jcabral78/mudl )"}
     
-    dados = requests.get(url, params=params, headers=headers).json()
+    dados = fazer_request(url, params, headers)
 
     if dados.get("releases") == None:
         sys.exit(f"Erro: houve algum problema com a requisição ao MusicBrainz\n{dados}")
@@ -45,7 +58,16 @@ def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
     release = dados["releases"][release_certa]
     faixas = release["media"][0].get("track") or release["media"][0].get("tracks")
 
-    capa = requests.get(f"https://coverartarchive.org/release/{release['id']}/front", headers=headers)
+    while True:
+        try:
+            time.sleep(2)
+            capa = requests.get(f"https://coverartarchive.org/release/{release['id']}/front", headers=headers)
+            capa.raise_for_status()
+        except requests.RequestException as e:
+            print(f"Erro: houve algum problema com a requisição da capa\n{e}")
+            print("Tentando novamente")
+        else:
+            break
     
     metadados = {
         "nome": dados["title"],
@@ -70,7 +92,17 @@ def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
     }
 
     print(f"Baixando: {nome_arquivo}")
-    yt_dlp.YoutubeDL(ydl_opts).download([url_youtube])
+    for i in range(5):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url_youtube])
+        except DownloadError as e:
+            causa = e.exc_info[1] if e.exc_info else e
+            print(f"Erro: houve algum problema no download\n{causa}")
+        else:
+            break
+    else:
+        sys.exit("Não foi possível fazer o download da música")
 
 
     audio = ID3(dir_musicas / f"{nome_arquivo}.mp3")
@@ -164,4 +196,7 @@ def main():
     conexao.close()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except:
+        raise SystemExit(130)
