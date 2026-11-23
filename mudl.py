@@ -39,8 +39,10 @@ def pegar_release(media_id_r):
 
         print(f"{i + 1}) {tipo} | {data} | {nome} | {release_id}")
 
-    return int(input("Escolha a release que deseja registrar: ")) - 1
-
+    try:
+        return int(input("Escolha a release que deseja registrar: ")) - 1
+    except ValueError as e:
+        sys.exit(f"Erro: valor incorreto\n{e}")
 
 def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
     url = f"https://musicbrainz.org/ws/2/recording/{mbid}"
