@@ -164,11 +164,12 @@ def main():
     
     elif args.atualizar:
         media_id_u = input("ID da música (MusicBrainz): ")
+        media_id_u_novo = input("Novo ID da música (MusicBrainz): ")
 
-        release_certa = pegar_release(media_id_u)
+        release_certa = pegar_release(media_id_u_novo)
 
         info_u = (input("Novo nome da música: "), input("Novo nome do artista: "),
-                  input("Novo ID da música (MusicBrainz): "), release_certa, input("Novo URL da música (Youtube): "), media_id_u)
+                  media_id_u_novo, release_certa, input("Novo URL da música (Youtube): "), media_id_u)
 
         cursor.execute("UPDATE musicas SET nome_musica = ?, nome_artista = ?, media_id = ?, release_certa = ?, url = ? WHERE media_id = ?", (info_u))
         conexao.commit()
