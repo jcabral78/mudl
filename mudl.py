@@ -30,9 +30,6 @@ def pegar_release(media_id_r):
     
     dados = fazer_request(url, params, headers)
 
-    if not dados.get("releases"):
-        sys.exit(f"Erro: houve algum problema com a requisição ao MusicBrainz\n{dados}")
-
     print("0) Tipo do release | Data de lançamento | Nome do release | ID do release")
     for i, releases in enumerate(dados["releases"]):
         tipo = releases["release-group"].get("primary-type")
@@ -51,9 +48,6 @@ def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
     headers = {"User-Agent": "mudl ( https://github.com/jcabral78/mudl )"}
     
     dados = fazer_request(url, params, headers)
-
-    if not dados.get("releases"):
-        sys.exit(f"Erro: houve algum problema com a requisição ao MusicBrainz\n{dados}")
 
     release = dados["releases"][release_certa]
     faixas = release["media"][0].get("track") or release["media"][0].get("tracks")
@@ -198,5 +192,5 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except:
+    except KeyboardInterrupt:
         raise SystemExit(130)
