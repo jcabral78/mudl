@@ -23,6 +23,29 @@ def fazer_request(url, params, headers):
 
     sys.exit("Não foi possível fazer a requisição")
 
+def pegar_musicas_mesmo_id(cursor, media_id_mesmo):
+    res_mesmo_id = cursor.execute("SELECT * FROM musicas WHERE media_id = ?", (media_id_mesmo,))
+    res_mesmo_id = res_mesmo_id.fetchall()
+
+    if len(res_mesmo_id) > 1:
+        musicas_mesmo_id = list()
+
+        for mesmo_id in res_mesmo_id:
+            print(f"{mesmo_id[0]}) {mesmo_id[1]} - {mesmo_id[2]} | nº da release: {mesmo_id[4]} | URL: {mesmo_id[5]}")
+            musicas_mesmo_id.append(mesmo_id[0])
+
+        try:
+            escolha = int(input("Escolha a música certa: "))
+        except ValueError as e:
+            sys.exit(f"Erro: valor incorreto\n{e}")
+
+        if not escolha in musicas_mesmo_id:
+            sys.exit(f"Erro: valor incorreto")
+        else:
+            return escolha
+
+        return None
+
 def pegar_release(media_id_r):
     url = f"https://musicbrainz.org/ws/2/recording/{media_id_r}"
     params = {"inc": "artists+releases+media+release-groups", "fmt": "json"}
@@ -158,14 +181,22 @@ def main():
         conexao.commit()
     
     elif args.ler:
-        res_r = cursor.execute("SELECT * FROM musicas")
-        res_r = res_r.fetchall()
+        res_l = cursor.execute("SELECT * FROM musicas")
+        res_l = res_l.fetchall()
     
-        for i, registros in enumerate(res_r):
+        for i, registros in enumerate(res_l):
             print(f"{i + 1}) {registros[1]} - {registros[2]} | ID: {registros[3]} | Nº da release: {registros[4] + 1} | URL: {registros[5]}")
     
     elif args.atualizar:
         media_id_u = input("ID da música (MusicBrainz): ")
+
+        musica_certa = pegar_musicas_mesmo_id(cursor, media_id_u)
+        if musica_certa:
+            media_id_ou_musica = "ID_musica"
+            media_id_u = musica_certa
+        else:
+            media_id_ou_musica = "media_id"
+
         media_id_u_novo = input("Novo ID da música (MusicBrainz): ")
 
         release_certa = pegar_release(media_id_u_novo)
@@ -173,12 +204,21 @@ def main():
         info_u = (input("Novo nome da música: "), input("Novo nome do artista: "),
                   media_id_u_novo, release_certa, input("Novo URL da música (Youtube): "), media_id_u)
 
-        cursor.execute("UPDATE musicas SET nome_musica = ?, nome_artista = ?, media_id = ?, release_certa = ?, url = ? WHERE media_id = ?", (info_u))
+        cursor.execute(f"UPDATE musicas SET nome_musica = ?, nome_artista = ?, media_id = ?, release_certa = ?, url = ? WHERE {media_id_ou_musica} = ?",
+                       (info_u))
         conexao.commit()
     
     elif args.remover:
         media_id_d = input("ID da música (MusicBrainz): ")
-        cursor.execute("DELETE FROM musicas WHERE media_id = ?", (media_id_d,))
+
+        musica_certa = pegar_musicas_mesmo_id(cursor, media_id_d)
+        if musica_certa:
+            media_id_ou_musica = "ID_musica"
+            media_id_d = musica_certa
+        else:
+            media_id_ou_musica = "media_id"
+
+        cursor.execute(f"DELETE FROM musicas WHERE {media_id_ou_musica} = ?", (media_id_d,))
         conexao.commit()
     
     else: 
