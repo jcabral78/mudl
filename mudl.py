@@ -36,8 +36,8 @@ def pegar_musicas_mesmo_id(cursor, media_id_mesmo):
 
         try:
             escolha = int(input("Escolha a música certa: "))
-        except ValueError as e:
-            sys.exit(f"Erro: valor incorreto\n{e}")
+        except ValueError:
+            sys.exit(f"Erro: valor incorreto")
 
         if not escolha in musicas_mesmo_id:
             sys.exit(f"Erro: valor incorreto")
@@ -45,6 +45,31 @@ def pegar_musicas_mesmo_id(cursor, media_id_mesmo):
             return escolha
 
         return None
+
+def registrar_metadados():
+    pegar_nome = input("Deseja usar o nome registrado nos metadados da música? [s/N] ")
+    pegar_artista = input("Deseja usar o artista registrado nos metadados da música? [s/N] ")
+    registrar_album = input("Escolha um nome de álbum para usar nos metadados (opcional): ")
+    registrar_data = input("Escolha uma data para usar nos metadados (opcional): ")
+    registrar_numero = input("Escolha número da música para usar nos metadados (opcional): ")
+
+    if pegar_nome.upper() == "S":
+        pegar_nome = 1
+    else:
+        pegar_nome = 0
+
+    if pegar_artista.upper() == "S":
+        pegar_artista = 1
+    else:
+        pegar_artista = 0
+
+    if registrar_numero:
+        try:
+            registrar_numero = int(registrar_numero)
+        except ValueError:
+            sys.exit(f"Erro: valor incorreto")
+
+    return (pegar_nome, pegar_artista, registrar_album, registrar_data, registrar_numero)
 
 def pegar_release(media_id_r):
     url = f"https://musicbrainz.org/ws/2/recording/{media_id_r}"
@@ -64,10 +89,10 @@ def pegar_release(media_id_r):
 
     try:
         return int(input("Escolha a release que deseja registrar: ")) - 1
-    except ValueError as e:
-        sys.exit(f"Erro: valor incorreto\n{e}")
+    except ValueError:
+        sys.exit(f"Erro: valor incorreto")
 
-def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
+def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas, metadados_registrados):
     url = f"https://musicbrainz.org/ws/2/recording/{mbid}"
     params = {"inc": "artists+releases+media+release-groups", "fmt": "json"}
     headers = {"User-Agent": "mudl ( https://github.com/jcabral78/mudl )"}
@@ -96,6 +121,21 @@ def baixar_musica(nome_arquivo, mbid, release_certa, url_youtube, dir_musicas):
         "data": release.get("date"),
         "numero": faixas[0]["position"]
     }
+
+    if metadados_registrados[0]:
+        metadados["nome"] = metadados_registrados[0]
+
+    if metadados_registrados[1]:
+        metadados["artista"] = metadados_registrados[1]
+
+    if metadados_registrados[2]:
+        metadados["album"] = metadados_registrados[2]
+
+    if metadados_registrados[3]:
+        metadados["data"] = metadados_registrados[3]
+
+    if metadados_registrados[4]:
+        metadados["numero"] = metadados_registrados[4]
 
 
     ydl_opts = {
@@ -164,7 +204,12 @@ def main():
             nome_artista TEXT NOT NULL,
             media_id TEXT NOT NULL,
             release_certa INTEGER NOT NULL,
-            url TEXT NOT NULL
+            url TEXT NOT NULL,
+            usar_nome INTEGER,
+            usar_artista INTEGER,
+            album TEXT,
+            data TEXT,
+            numero TEXT
         )
     ''')
 
@@ -174,10 +219,19 @@ def main():
 
         release_certa = pegar_release(media_id_c)
 
-        info_c = (input("Nome da música: "), input("Nome do artista/banda: "),
-                  media_id_c, release_certa, input("URL da música (Youtube): "))
+        info_c = [input("Nome da música: "), input("Nome do artista/banda: "),
+                  media_id_c, release_certa, input("URL da música (Youtube): ")]
 
-        cursor.execute("INSERT INTO musicas (nome_musica, nome_artista, media_id, release_certa, url) VALUES(?, ?, ?, ?, ?)", info_c)
+        metadados_registrados_c = registrar_metadados()
+
+        for metadados_c in metadados_registrados_c:
+            info_c.append(metadados_c)
+
+        info_c = tuple(info_c)
+
+        cursor.execute("""INSERT INTO musicas (nome_musica, nome_artista, media_id, release_certa, url,
+                        usar_nome, usar_artista, album, data, numero)
+                        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", info_c)
         conexao.commit()
     
     elif args.ler:
@@ -186,6 +240,27 @@ def main():
     
         for i, registros in enumerate(res_l):
             print(f"{i + 1}) {registros[1]} - {registros[2]} | ID: {registros[3]} | Nº da release: {registros[4] + 1} | URL: {registros[5]}")
+
+            if registros[6] or registros[7] or registros[8] or registros[9] or registros[10]:
+                print("     ", end="")
+
+            if registros[6]:
+                print("Usando nome nos metadados   ", end="")
+
+            if registros[7]:
+                print("Usando artista nos metadados   ", end="")
+
+            if registros[8]:
+                print(f"Album: {registros[8]}   ", end="")
+
+            if registros[9]:
+                print(f"Data: {registros[9]}   ", end="")
+
+            if registros[10]:
+                print(f"Nº da música: {registros[10]}   ", end="")
+
+            if registros[6] or registros[7] or registros[8] or registros[9] or registros[10]:
+                print()
     
     elif args.atualizar:
         media_id_u = input("ID da música (MusicBrainz): ")
@@ -201,11 +276,21 @@ def main():
 
         release_certa = pegar_release(media_id_u_novo)
 
-        info_u = (input("Novo nome da música: "), input("Novo nome do artista: "),
-                  media_id_u_novo, release_certa, input("Novo URL da música (Youtube): "), media_id_u)
+        info_u = [input("Novo nome da música: "), input("Novo nome do artista: "),
+                  media_id_u_novo, release_certa, input("Novo URL da música (Youtube): ")]
 
-        cursor.execute(f"UPDATE musicas SET nome_musica = ?, nome_artista = ?, media_id = ?, release_certa = ?, url = ? WHERE {media_id_ou_musica} = ?",
-                       (info_u))
+        metadados_registrados_a = registrar_metadados()
+
+        for metadados_a in metadados_registrados_a:
+            info_u.append(metadados_a)
+
+        info_u.append(media_id_u)
+
+        info_u = tuple(info_u)
+
+        cursor.execute(f"""UPDATE musicas SET nome_musica = ?, nome_artista = ?, media_id = ?, release_certa = ?, url = ?,
+                        usar_nome = ?, usar_artista = ?, album = ?, data = ?, numero = ? WHERE {media_id_ou_musica} = ?""",
+                       info_u)
         conexao.commit()
     
     elif args.remover:
@@ -227,8 +312,25 @@ def main():
         
         for registros in res:
             nome_arquivo = f"{registros[1]} - {registros[2]}"
+            metadados_registrados = ["", "", "", "", ""]
+
+            if registros[6]:
+                metadados_registrados[0] = registros[1]
+
+            if registros[7]:
+                metadados_registrados[1] = registros[2]
+
+            if registros[8]:
+                metadados_registrados[2] = registros[8]
+
+            if registros[9]:
+                metadados_registrados[3] = registros[9]
+
+            if registros[10]:
+                metadados_registrados[4] = registros[10]
+
             if not (dir_musicas / f"{nome_arquivo}.mp3").is_file():
-                baixar_musica(nome_arquivo, registros[3], registros[4], registros[5], dir_musicas)
+                baixar_musica(nome_arquivo, registros[3], registros[4], registros[5], dir_musicas, metadados_registrados)
     
     conexao.close()
 
